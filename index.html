@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>圖片浮水印生成器</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background-color: #f7f7f7;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      margin-top: 20px;
+      max-width: 100%;
+    }
+    .controls {
+      margin-bottom: 10px;
+    }
+    input[type="text"] {
+      width: 200px;
+      padding: 5px;
+    }
+    button {
+      margin: 5px;
+      padding: 5px 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>圖片浮水印生成器</h1>
+
+  <div class="controls">
+    <!-- 圖片上傳 -->
+    <input type="file" id="imageInput" accept="image/*">
+    <br><br>
+    <!-- 浮水印文字輸入 -->
+    <label for="watermarkText">浮水印文字：</label>
+    <input type="text" id="watermarkText" value="My Watermark">
+    <br><br>
+    <!-- 添加浮水印按鈕 -->
+    <button id="addWatermarkBtn">添加浮水印</button>
+    <!-- 下載圖片按鈕 -->
+    <button id="downloadBtn">下載圖片</button>
+  </div>
+
+  <!-- Canvas 用於呈現圖片及浮水印 -->
+  <canvas id="canvas"></canvas>
+
+  <script>
+    // 取得 DOM 元素
+    const imageInput = document.getElementById('imageInput');
+    const watermarkTextInput = document.getElementById('watermarkText');
+    const addWatermarkBtn = document.getElementById('addWatermarkBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // 儲存上傳圖片的 Image 物件與原始檔名
+    let img = new Image();
+    let originalFileName = "";
+
+    // 當使用者上傳圖片時觸發
+    imageInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // 儲存原始檔名（包含副檔名）
+      originalFileName = file.name;
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        img = new Image();
+        img.onload = function() {
+          // 設定 canvas 大小為圖片原始大小
+          canvas.width = img.width;
+          canvas.height = img.height;
+          // 將圖片繪製到 canvas
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // 當按下「添加浮水印」按鈕時觸發
+    addWatermarkBtn.addEventListener('click', function() {
+      if (!img.src) {
+        alert("請先上傳圖片！");
+        return;
+      }
+      
+      // 重新繪製圖片，避免浮水印疊加累計
+      ctx.drawImage(img, 0, 0);
+      
+      // 取得浮水印文字及設定樣式
+      const watermarkText = watermarkTextInput.value;
+      ctx.font = "30px Arial";
+      // 使用半透明黑色（可依需求調整顏色與透明度）
+      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      
+      // 設定旋轉角度（-45 度）
+      const angle = -45 * Math.PI / 180;
+      
+      // 設定每個浮水印的間隔 (依需求調整)
+      const step = 200;
+      
+      // 透過兩層 for 迴圈，在整個 canvas 上重複繪製浮水印
+      for (let x = -canvas.width; x < canvas.width * 2; x += step) {
+        for (let y = -canvas.height; y < canvas.height * 2; y += step) {
+          ctx.save();            // 保存目前狀態
+          ctx.translate(x, y);   // 平移至 (x, y)
+          ctx.rotate(angle);     // 旋轉
+          ctx.fillText(watermarkText, 0, 0); // 繪製文字
+          ctx.restore();         // 還原狀態
+        }
+      }
+    });
+
+    // 當按下「下載圖片」按鈕時觸發
+    downloadBtn.addEventListener('click', function() {
+      if (!img.src) {
+        alert("請先上傳並添加浮水印！");
+        return;
+      }
+
+      // 根據原始檔名判斷副檔名與 MIME type
+      let ext = "png";  // 預設為 png
+      let mimeType = "image/png";
+      const dotIndex = originalFileName.lastIndexOf('.');
+      let baseName = originalFileName;
+      if (dotIndex !== -1) {
+        baseName = originalFileName.substring(0, dotIndex);
+        ext = originalFileName.substring(dotIndex + 1).toLowerCase();
+      }
+      if (ext === "jpg" || ext === "jpeg") {
+        mimeType = "image/jpeg";
+      }
+      
+      // 將 canvas 內容轉換為圖片資料 URL
+      const imageURL = canvas.toDataURL(mimeType);
+      
+      // 產生 timestamp
+      const timestamp = Date.now();
+      
+      // 組合下載檔名：原始檔名 (不含副檔名) + _watermark_ + timestamp + .副檔名
+      const newFileName = `${baseName}_watermark_${timestamp}.${ext}`;
+      
+      // 建立一個隱藏的 a 元素並模擬點擊下載圖片
+      const link = document.createElement('a');
+      link.href = imageURL;
+      link.download = newFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+  </script>
+</body>
+</html>
